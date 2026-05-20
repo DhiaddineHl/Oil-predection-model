@@ -18,18 +18,22 @@ import pandas as pd
 def load_wti(path: Path) -> pd.DataFrame:
     """Load WTI spot price from ``RWTCd.xls`` (legacy .xls, sheet 'Data 1')."""
     df = pd.read_excel(path, sheet_name="Data 1", skiprows=2, engine="xlrd")
-    # The file ships with two columns: Date + price.
     df.columns = [str(c).strip() for c in df.columns]
-    price_col = [c for c in df.columns if "WTI" in c or "Cushing" in c]
-    if not price_col:
-        # Fallback: assume second column is the price.
-        price_col = [df.columns[1]]
-    df = df.rename(columns={df.columns[0]: "date", price_col[0]: "WTI_price"})
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date", "WTI_price"])
-    df["WTI_price"] = pd.to_numeric(df["WTI_price"], errors="coerce")
-    df = df.dropna(subset=["WTI_price"]).reset_index(drop=True)
-    return df[["date", "WTI_price"]]
+    # Drop duplicate column names that may sneak in from the source file —
+    # otherwise df["date"] returns a DataFrame and to_datetime tries to assemble
+    # year/month/day components and raises "cannot assemble with duplicate keys".
+    df = df.loc[:, ~df.columns.duplicated()].copy()
+
+    price_idx = next(
+        (i for i, c in enumerate(df.columns) if "WTI" in c or "Cushing" in c),
+        1 if len(df.columns) > 1 else 0,
+    )
+    date_series = pd.to_datetime(df.iloc[:, 0], errors="coerce")
+    price_series = pd.to_numeric(df.iloc[:, price_idx], errors="coerce")
+
+    out = pd.DataFrame({"date": date_series, "WTI_price": price_series})
+    out = out.dropna(subset=["date", "WTI_price"]).reset_index(drop=True)
+    return out
 
 
 GPR_COLUMNS = ["date", "GPRD", "GPRD_ACT", "GPRD_THREAT", "GPRD_MA7", "GPRD_MA30"]
@@ -39,45 +43,56 @@ def load_gpr(path: Path) -> pd.DataFrame:
     """Load the Daily Geopolitical Risk Index file."""
     df = pd.read_excel(path, engine="xlrd")
     df.columns = [str(c).strip() for c in df.columns]
-    # Find the date column (it can be capitalised differently across versions).
-    date_col = next(
-        (c for c in df.columns if c.lower() in {"date", "day"}),
-        df.columns[0],
-    )
-    df = df.rename(columns={date_col: "date"})
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date"])
+    # Drop duplicate column names — pandas keeps both copies on read, which
+    # then causes df["date"] to return a DataFrame and triggers the
+    # "cannot assemble with duplicate keys" error from to_datetime.
+    df = df.loc[:, ~df.columns.duplicated()].copy()
 
-    keep = ["date"]
-    for col in ["GPRD", "GPRD_ACT", "GPRD_THREAT", "GPRD_MA7", "GPRD_MA30"]:
+    # Pick the date column by name (case-insensitive). Common variants in the
+    # published GPRD file are "DATE", "Date", "date", "DAY" or "month".
+    date_idx = next(
+        (
+            i
+            for i, c in enumerate(df.columns)
+            if c.lower() in {"date", "day", "month"}
+        ),
+        0,
+    )
+    date_series = pd.to_datetime(df.iloc[:, date_idx], errors="coerce")
+
+    out: dict[str, pd.Series] = {"date": date_series}
+    for col in ("GPRD", "GPRD_ACT", "GPRD_THREAT", "GPRD_MA7", "GPRD_MA30"):
         if col in df.columns:
-            keep.append(col)
-    df = df[keep].copy()
-    for col in keep[1:]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df.reset_index(drop=True)
+            out[col] = pd.to_numeric(df[col], errors="coerce")
+
+    result = pd.DataFrame(out)
+    result = result.dropna(subset=["date"]).reset_index(drop=True)
+    return result
 
 
 def load_epu(path: Path) -> pd.DataFrame:
     """Load the monthly Global Economic Policy Uncertainty file."""
     df = pd.read_excel(path, engine="openpyxl")
     df.columns = [str(c).strip() for c in df.columns]
+    df = df.loc[:, ~df.columns.duplicated()].copy()
 
-    df["Year"] = pd.to_numeric(df.get("Year"), errors="coerce")
-    df["Month"] = pd.to_numeric(df.get("Month"), errors="coerce")
-    df = df.dropna(subset=["Year", "Month"])
-    df["Year"] = df["Year"].astype(int)
-    df["Month"] = df["Month"].astype(int)
+    if "Year" not in df.columns or "Month" not in df.columns:
+        raise ValueError(
+            f"EPU file is missing Year/Month columns. Found: {list(df.columns)}"
+        )
 
+    year = pd.to_numeric(df["Year"], errors="coerce")
+    month = pd.to_numeric(df["Month"], errors="coerce")
+
+    out: dict[str, pd.Series] = {"Year": year, "Month": month}
     for col in ("GEPU_current", "GEPU_ppp"):
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            out[col] = pd.to_numeric(df[col], errors="coerce")
 
-    keep = ["Year", "Month"]
-    for col in ("GEPU_current", "GEPU_ppp"):
-        if col in df.columns:
-            keep.append(col)
-    return df[keep].reset_index(drop=True)
+    result = pd.DataFrame(out).dropna(subset=["Year", "Month"]).reset_index(drop=True)
+    result["Year"] = result["Year"].astype(int)
+    result["Month"] = result["Month"].astype(int)
+    return result
 
 
 # ---------------------------------------------------------------------------
