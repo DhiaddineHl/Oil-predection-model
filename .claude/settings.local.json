@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(python -c ' *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" log --oneline --all)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" log --oneline --all -- models/baseline_rf.pkl)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" branch -a)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" ls-files)",
+      "Bash(findstr /R \"\\\\.pkl$ \\\\.pt$\")",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" ls-files models/)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" log --oneline origin/main..HEAD)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" reset --soft origin/main)",
+      "Bash(git -C \"C:\\\\projects\\\\chemchik\\\\oil-price-predection\" rm --cached models/baseline_rf.pkl models/advanced_tft.pt models/deep_bilstm.pt models/deep_cnn_gru.pt models/scaler.pkl)",
+      "Bash(git *)"
     ]
   }
 }
