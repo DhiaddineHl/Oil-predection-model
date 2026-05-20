@@ -1,0 +1,110 @@
+# ---------------------------------------------------------------------------
+# Project-generated artefacts (regenerable from raw data + src/)
+# ---------------------------------------------------------------------------
+
+# Trained models (baseline_rf.pkl alone is ~257 MB).
+models/*.pkl
+models/*.pt
+models/*.joblib
+models/*.onnx
+
+# Processed datasets (rebuild with `python -m src.data.build_dataset`).
+data/processed/
+
+# Outputs: figures, metrics, logs, analysis reports.
+outputs/figures/
+outputs/metrics/
+outputs/*.log
+outputs/*.md
+
+# Keep the directories themselves (with a .gitkeep) so the pipeline can write
+# into them on a fresh clone — uncomment if you add .gitkeep placeholders:
+# !models/.gitkeep
+# !data/processed/.gitkeep
+# !outputs/figures/.gitkeep
+# !outputs/metrics/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+develop-eggs/
+.installed.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Type-checker / linter caches
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.pyre/
+
+# Test / coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# ---------------------------------------------------------------------------
+# Jupyter
+# ---------------------------------------------------------------------------
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# ---------------------------------------------------------------------------
+# Streamlit / FastAPI runtime
+# ---------------------------------------------------------------------------
+.streamlit/secrets.toml
+.streamlit/cache/
+.fastapi_cache/
+
+# ---------------------------------------------------------------------------
+# Secrets / local config
+# ---------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# ---------------------------------------------------------------------------
+# OS / editor
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+*.tmp
+*.bak
+*.orig
+
+
+data/processed/

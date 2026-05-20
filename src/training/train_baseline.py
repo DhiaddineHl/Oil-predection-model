@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Iterable
 
 import joblib
+import matplotlib
+
+matplotlib.use("Agg")  # non-interactive backend — figures are saved to disk.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

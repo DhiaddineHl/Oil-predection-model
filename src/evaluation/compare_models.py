@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Iterable
 
 import joblib
+import matplotlib
+
+matplotlib.use("Agg")  # non-interactive backend — figures are saved to disk.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -293,6 +296,29 @@ def _plot_overlay(
 # ---------------------------------------------------------------------------
 # Analysis writer
 # ---------------------------------------------------------------------------
+def _df_to_markdown(df: pd.DataFrame) -> str:
+    """Render ``df`` as a GitHub-flavoured Markdown table without depending
+    on the optional ``tabulate`` package."""
+    headers = [str(c) for c in df.columns]
+    rows = []
+    for _, row in df.iterrows():
+        cells = []
+        for v in row:
+            if isinstance(v, float):
+                cells.append(f"{v:.4f}")
+            else:
+                cells.append(str(v))
+        rows.append(cells)
+    sep = ["---"] * len(headers)
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(sep) + " |",
+    ]
+    for r in rows:
+        lines.append("| " + " | ".join(r) + " |")
+    return "\n".join(lines)
+
+
 def _write_analysis(df: pd.DataFrame, path: Path) -> str:
     best = df.iloc[0]
     fastest_train = df.sort_values("train_time_s").iloc[0]
@@ -303,7 +329,7 @@ def _write_analysis(df: pd.DataFrame, path: Path) -> str:
         "",
         "## Ranking (test set, ascending MAE)",
         "",
-        df.to_markdown(index=False),
+        _df_to_markdown(df),
         "",
         "## Best model",
         f"- **{best['model']}** achieves the lowest test MAE "

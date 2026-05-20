@@ -8,6 +8,9 @@ import random
 import time
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")  # non-interactive backend — figures are saved to disk.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd

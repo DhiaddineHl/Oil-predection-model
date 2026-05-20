@@ -39,26 +39,52 @@ def load_wti(path: Path) -> pd.DataFrame:
 GPR_COLUMNS = ["date", "GPRD", "GPRD_ACT", "GPRD_THREAT", "GPRD_MA7", "GPRD_MA30"]
 
 
+def _find_date_column(df: pd.DataFrame) -> int:
+    """Return the index of the column most likely to contain real dates.
+
+    Picks the column with the most successful date parses that fall in a
+    plausible range (1900-01-01 to 2100-01-01). Avoids the trap where an
+    integer column like ``Year`` or ``Month`` (1, 2, ..., 12) is interpreted
+    by pandas as nanoseconds-since-epoch and yields fake dates near 1970.
+    """
+    lo = pd.Timestamp("1900-01-01")
+    hi = pd.Timestamp("2100-01-01")
+    best_idx = 0
+    best_score = -1
+    for i, col in enumerate(df.columns):
+        series = df[col]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return i
+        try:
+            parsed = pd.to_datetime(series, errors="coerce")
+        except Exception:
+            continue
+        valid = parsed.dropna()
+        if valid.empty:
+            continue
+        score = int(((valid >= lo) & (valid <= hi)).sum())
+        if score > best_score:
+            best_score = score
+            best_idx = i
+    return best_idx
+
+
 def load_gpr(path: Path) -> pd.DataFrame:
     """Load the Daily Geopolitical Risk Index file."""
     df = pd.read_excel(path, engine="xlrd")
     df.columns = [str(c).strip() for c in df.columns]
-    # Drop duplicate column names — pandas keeps both copies on read, which
-    # then causes df["date"] to return a DataFrame and triggers the
-    # "cannot assemble with duplicate keys" error from to_datetime.
     df = df.loc[:, ~df.columns.duplicated()].copy()
 
-    # Pick the date column by name (case-insensitive). Common variants in the
-    # published GPRD file are "DATE", "Date", "date", "DAY" or "month".
-    date_idx = next(
-        (
-            i
-            for i, c in enumerate(df.columns)
-            if c.lower() in {"date", "day", "month"}
-        ),
-        0,
-    )
+    date_idx = _find_date_column(df)
     date_series = pd.to_datetime(df.iloc[:, date_idx], errors="coerce")
+
+    valid = date_series.dropna()
+    if valid.empty or valid.min() < pd.Timestamp("1900-01-01"):
+        raise ValueError(
+            f"GPR loader could not find a real date column. "
+            f"Tried column {df.columns[date_idx]!r} (index {date_idx}). "
+            f"Available columns: {list(df.columns)}"
+        )
 
     out: dict[str, pd.Series] = {"date": date_series}
     for col in ("GPRD", "GPRD_ACT", "GPRD_THREAT", "GPRD_MA7", "GPRD_MA30"):
@@ -107,6 +133,12 @@ def merge_sources(
 ) -> pd.DataFrame:
     """Join the three sources on a daily grain and forward-fill monthly EPU."""
     df = pd.merge(wti, gpr, on="date", how="inner")
+    if df.empty:
+        raise ValueError(
+            "WTI ⋈ GPR inner-join produced 0 rows — date columns do not overlap. "
+            f"WTI: {wti['date'].min()} → {wti['date'].max()}, "
+            f"GPR: {gpr['date'].min()} → {gpr['date'].max()}"
+        )
     df["Year"] = df["date"].dt.year
     df["Month"] = df["date"].dt.month
     df = pd.merge(df, epu, on=["Year", "Month"], how="left")
